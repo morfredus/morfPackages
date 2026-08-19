@@ -1,0 +1,7 @@
+dist/
+*.deb
+*.zip
+*.bin
+*.sha256
+__pycache__/
+
