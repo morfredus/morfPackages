@@ -165,8 +165,9 @@ def publish(args: argparse.Namespace) -> int:
         print("nothing to publish")
         return 0
     if old is None:
-        run(["gh", "release", "create", name, "--repo", repo, "--title", name,
-             "--notes", f"Distribution artifacts for {args.project} {args.version}."])
+        run(["gh", "release", "create", name, "--repo", repo,
+             "--title", f"{args.project} - v{args.version}",
+             "--notes", args.notes or f"Distribution artifacts for {args.project} {args.version}."])
     upload = ["gh", "release", "upload", name, "--repo", repo]
     if args.force:
         upload.append("--clobber")
@@ -208,13 +209,21 @@ def main() -> int:
     publish_parser.add_argument("--version", required=True)
     publish_parser.add_argument("--metadata", type=Path, action="append", required=True)
     publish_parser.add_argument("--force", action="store_true", help="replace a conflicting asset")
+    publish_parser.add_argument("--notes", help="release text used only when creating the release")
     sync_parser = commands.add_parser("sync", help="download existing artifact assets")
     sync_parser.add_argument("--project", required=True)
     sync_parser.add_argument("--version", required=True)
     sync_parser.add_argument("--out", type=Path, required=True)
+    commands.add_parser("preflight", help="verify and fast-forward this repository")
     args = parser.parse_args()
     try:
-        return publish(args) if args.command == "publish" else sync(args)
+        if args.command == "publish":
+            return publish(args)
+        if args.command == "sync":
+            return sync(args)
+        preflight()
+        print("morfPackages repository is ready")
+        return 0
     except ReleaseError as exc:
         print(f"REFUSED: {exc}", file=sys.stderr)
         return 2
@@ -222,4 +231,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
-

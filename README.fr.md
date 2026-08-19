@@ -1,6 +1,6 @@
 # morfPackages
 
-[![Version](https://img.shields.io/badge/version-0.1.0-blue)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-0.3.1-blue)](CHANGELOG.md)
 
 J'avais besoin de pouvoir installer une version de morfSystem sans transformer les dépôts de code en entrepôts de binaires. `morfPackages` garde donc un rôle étroit : il rassemble les livrables déjà construits, sans compiler à leur place ni s'approprier leurs recettes.
 
@@ -11,4 +11,3 @@ Le dépôt source public reste l'autorité. Avant toute publication, le script v
 `scripts/sync-release-assets.py` récupère les assets déjà publiés dans le dossier de distribution commun. `scripts/publish-release.py` ajoute seulement les artefacts manquants d'une plateforme, après les vérifications nécessaires. Les deux passent uniquement par `gh release` pour les assets.
 
 Le schéma du manifeste v1 se trouve dans [schema/manifest.schema.json](schema/manifest.schema.json).
-

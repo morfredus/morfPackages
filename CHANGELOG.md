@@ -3,6 +3,26 @@
 Le format s'inspire de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/)
 et du [versionnage sémantique](https://semver.org/lang/fr/).
 
+## [0.3.1] - 2026-08-20
+
+### Ajouté
+
+- Modèles GitHub pour les rapports de bug, les questions et les améliorations.
+
+## [0.3.0] - 2026-08-20
+
+### Ajouté
+
+- Texte de release personnalisable lors de la première publication d'une
+  version depuis `package-all`.
+
+## [0.2.0] - 2026-08-20
+
+### Modifié
+
+- `package-all` prépare désormais le dépôt avant de construire et publie
+  automatiquement chaque livrable prouvé vers sa release GitHub privée.
+
 ## [0.1.0] - 2026-08-20
 
 ### Ajouté
@@ -11,4 +31,3 @@ et du [versionnage sémantique](https://semver.org/lang/fr/).
   son SHA-256, son commit Git complet, sa cible et sa plateforme.
 - Les scripts de synchronisation et de publication de releases, conçus pour ne
   jamais mettre un binaire dans l'historique Git.
-

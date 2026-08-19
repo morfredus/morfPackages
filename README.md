@@ -1,6 +1,6 @@
 # morfPackages
 
-[![Version](https://img.shields.io/badge/version-0.1.0-blue)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-0.3.1-blue)](CHANGELOG.md)
 
 `morfPackages` publishes the installable morfSystem artifacts without taking ownership of their source builds. The Git repository deliberately contains only the release contract and the scripts that enforce it; every binary lives only as a GitHub Release asset.
 
@@ -15,4 +15,3 @@ Run the scripts from a clean checkout. `scripts/publish-release.py` starts with 
 The machine that built an artifact supplies a small JSON sidecar with the artifact name, SHA-256, full commit, target and platform. The sidecar is validated and becomes the matching manifest entry; it is not uploaded as a release asset.
 
 See [schema/manifest.schema.json](schema/manifest.schema.json) for the v1 contract.
-
