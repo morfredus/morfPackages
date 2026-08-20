@@ -3,6 +3,14 @@
 Le format s'inspire de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/)
 et du [versionnage sémantique](https://semver.org/lang/fr/).
 
+## [0.6.0] - 2026-08-20
+
+### Ajouté
+
+- Les installables validés, le manifeste et les sommes de contrôle sont aussi
+  ajoutés à la release du dépôt source, pour les rendre accessibles depuis la
+  page de release consultée par les utilisateurs.
+
 ## [0.5.0] - 2026-08-20
 
 ### Ajouté

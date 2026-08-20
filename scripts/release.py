@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Synchronise et publie les assets d'une release morfPackages.
+"""Synchronise et publie les assets des releases de distribution et source.
 
 Les binaires ne passent jamais par Git. Cette commande ne les lit et ne les
 écrit qu'au travers de ``gh release`` ; Git sert uniquement au préflight du
@@ -188,6 +188,58 @@ def write_manifest(folder: Path, project: str, version: str, entries: list[dict]
     return manifest_path, checksums
 
 
+def release_asset_names(repo: str, name: str) -> set[str]:
+    """Return the uploaded asset names of an existing GitHub release."""
+    raw = run(["gh", "release", "view", name, "--repo", repo,
+               "--json", "assets", "--jq", ".assets[].name"], capture=True)
+    return {line.strip() for line in raw.splitlines() if line.strip()}
+
+
+def mirror_source_release(distribution_repo: str, distribution_name: str,
+                          source: str, tag: str, project: str, version: str,
+                          artifact_names: list[str], manifest: Path, checksums: Path,
+                          notes: str | None) -> None:
+    """Expose checked package assets on the release users visit first.
+
+    morfPackages remains the canonical distribution index and retains the
+    manifest validation.  The project release receives byte-identical copies so
+    an end user does not need to discover a second repository to download an
+    installable. Existing source assets are downloaded and hashed before being
+    accepted: this never silently replaces an uploaded binary.
+    """
+    source_assets = release_asset_names(source, tag)
+    names = [*artifact_names, manifest.name, checksums.name]
+    with tempfile.TemporaryDirectory(prefix="morfpackages-source-") as raw:
+        folder = Path(raw)
+        files: list[Path] = []
+        for asset_name in names:
+            if asset_name in (manifest.name, checksums.name):
+                local = manifest if asset_name == manifest.name else checksums
+            else:
+                run(["gh", "release", "download", distribution_name, "--repo", distribution_repo,
+                     "--pattern", asset_name, "--dir", str(folder), "--clobber"])
+                local = folder / asset_name
+            if not local.is_file():
+                raise ReleaseError(f"distribution asset cannot be downloaded: {asset_name}")
+            if asset_name in source_assets:
+                checked = folder / "existing" / asset_name
+                checked.parent.mkdir(parents=True, exist_ok=True)
+                run(["gh", "release", "download", tag, "--repo", source,
+                     "--pattern", asset_name, "--dir", str(checked.parent), "--clobber"])
+                if not checked.is_file() or checksum(checked) != checksum(local):
+                    raise ReleaseError(
+                        f"source release already contains a different asset: {asset_name}")
+            else:
+                files.append(local)
+        if files:
+            run(["gh", "release", "upload", tag, "--repo", source,
+                 *[str(path) for path in files]])
+        if notes:
+            run(["gh", "release", "edit", tag, "--repo", source,
+                 "--title", f"{project} - v{version}", "--notes", notes])
+    print(f"mirrored {len(files)} asset(s) to {source} release {tag}")
+
+
 def publish(args: argparse.Namespace) -> int:
     preflight()
     repo = repository()
@@ -233,20 +285,20 @@ def publish(args: argparse.Namespace) -> int:
             raise ReleaseError(f"conflict for {entry['name']}: commit or checksum differs")
         existing[entry["name"]] = entry
         additions.append((artifact, entry))
-    if not additions:
-        print("nothing to publish")
-        return 0
     if old is None:
         run(["gh", "release", "create", name, "--repo", repo,
              "--title", f"{args.project} - v{args.version}",
              "--notes", args.notes or f"Distribution artifacts for {args.project} {args.version}."])
-    upload = ["gh", "release", "upload", name, "--repo", repo]
-    run(upload + [str(path) for path, _ in additions])
+    if additions:
+        upload = ["gh", "release", "upload", name, "--repo", repo]
+        run(upload + [str(path) for path, _ in additions])
     with tempfile.TemporaryDirectory(prefix="morfpackages-") as raw:
         manifest, checksums = write_manifest(Path(raw), args.project, args.version,
                                              list(existing.values()), source, tag, tagged_commit)
         run(["gh", "release", "upload", name, "--repo", repo, "--clobber",
              str(manifest), str(checksums)])
+        mirror_source_release(repo, name, source, tag, args.project, args.version,
+                              sorted(existing), manifest, checksums, args.notes)
     print(f"published {len(additions)} artifact(s) to {repo} release {name}")
     return 0
 
