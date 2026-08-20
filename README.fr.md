@@ -1,6 +1,6 @@
 # morfPackages
 
-[![Version](https://img.shields.io/badge/version-0.3.1-blue)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-0.4.0-blue)](CHANGELOG.md)
 
 J'avais besoin de pouvoir installer une version de morfSystem sans transformer les dépôts de code en entrepôts de binaires. `morfPackages` garde donc un rôle étroit : il rassemble les livrables déjà construits, sans compiler à leur place ni s'approprier leurs recettes.
 

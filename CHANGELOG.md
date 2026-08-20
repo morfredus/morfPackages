@@ -3,6 +3,14 @@
 Le format s'inspire de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/)
 et du [versionnage sémantique](https://semver.org/lang/fr/).
 
+## [0.4.0] - 2026-08-20
+
+### Modifié
+
+- La vérification de la release source déduit le dépôt correspondant du
+  workspace courant, afin que la sandbox publie et vérifie ses releases privées
+  sans toucher à la production.
+
 ## [0.3.1] - 2026-08-20
 
 ### Ajouté

@@ -65,18 +65,27 @@ def release_name(project: str, version: str) -> str:
     return f"{project.lower()}-v{version}"
 
 
-def source_repository(owner: str, project: str) -> str:
-    return f"{owner}/{project}"
+def source_repository(distribution_repo: str, project: str) -> str:
+    """Find the matching source remote in this same workspace.
+
+    The distribution repository name carries the workspace suffix when there is
+    one. Keeping that suffix instead of spelling it here makes sandbox releases
+    target private source repositories while production targets canonical ones.
+    """
+    owner, package_name = distribution_repo.split("/", 1)
+    marker = "morfPackages"
+    suffix = package_name[len(marker):] if package_name.startswith(marker) else ""
+    return f"{owner}/{project}{suffix}"
 
 
-def ensure_public_source_release(owner: str, project: str, version: str) -> None:
-    source = source_repository(owner, project)
+def ensure_source_release(distribution_repo: str, project: str, version: str) -> None:
+    source = source_repository(distribution_repo, project)
     for tag in (f"v{version}", version):
         result = subprocess.run(["gh", "release", "view", tag, "--repo", source],
                                 cwd=HERE, text=True, capture_output=True)
         if result.returncode == 0:
             return
-    raise ReleaseError(f"public source release missing: {source} version {version}")
+    raise ReleaseError(f"source release missing: {source} version {version}")
 
 
 def download_manifest(repo: str, name: str) -> dict | None:
@@ -142,8 +151,7 @@ def write_manifest(folder: Path, project: str, version: str, entries: list[dict]
 def publish(args: argparse.Namespace) -> int:
     preflight()
     repo = repository()
-    owner = repo.split("/", 1)[0]
-    ensure_public_source_release(owner, args.project, args.version)
+    ensure_source_release(repo, args.project, args.version)
     name = release_name(args.project, args.version)
     old = download_manifest(repo, name)
     if old and (old.get("schema_version") != SCHEMA_VERSION or old.get("project") != args.project
