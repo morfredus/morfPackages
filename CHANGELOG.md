@@ -3,6 +3,16 @@
 Le format s'inspire de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/)
 et du [versionnage sémantique](https://semver.org/lang/fr/).
 
+## [0.5.0] - 2026-08-20
+
+### Ajouté
+
+- La publication résout désormais le tag distant `vX.Y.Z` du dépôt source
+  d'autorité et exige que son SHA complet soit celui de chaque artefact.
+- Le manifeste enregistre le dépôt source, le tag et son commit. Toute
+  divergence avec un asset déjà enregistré est un refus bloquant, sans mutation
+  de la release.
+
 ## [0.4.0] - 2026-08-20
 
 ### Modifié

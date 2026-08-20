@@ -1,12 +1,12 @@
 # morfPackages
 
-[![Version](https://img.shields.io/badge/version-0.4.0-blue)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-0.5.0-blue)](CHANGELOG.md)
 
 `morfPackages` publishes the installable morfSystem artifacts without taking ownership of their source builds. The Git repository deliberately contains only the release contract and the scripts that enforce it; every binary lives only as a GitHub Release asset.
 
-Each release is named `<project>-v<version>`. It gathers the artifacts built for that version on every supported platform, plus `manifest.json` and `checksums.sha256`. The manifest is the durable, machine-readable record of the full source commit, target and SHA-256 for each artifact.
+Each release is named `<project>-v<version>`. It gathers the artifacts built for that version on every supported platform, plus `manifest.json` and `checksums.sha256`. The manifest records the authoritative source repository, tag and full commit, alongside each artifact's target and SHA-256.
 
-The source project remains authoritative. Before accepting an artifact, the publishing script verifies that its public source repository already has a release for the same version. It never builds a project, changes a source release, or replaces an asset silently.
+The source project remains authoritative. Before accepting an artifact, the publishing script resolves the source repository for the current workspace, verifies its `vX.Y.Z` release and remote tag, then requires its full commit SHA to match the artifact provenance. It never builds a project, changes a source release, or replaces an asset silently.
 
 ## Workflow
 

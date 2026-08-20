@@ -78,14 +78,48 @@ def source_repository(distribution_repo: str, project: str) -> str:
     return f"{owner}/{project}{suffix}"
 
 
-def ensure_source_release(distribution_repo: str, project: str, version: str) -> None:
+def ensure_source_release(distribution_repo: str, project: str, version: str) -> tuple[str, str]:
+    """Require the authoritative release and its exact conventional source tag."""
     source = source_repository(distribution_repo, project)
-    for tag in (f"v{version}", version):
-        result = subprocess.run(["gh", "release", "view", tag, "--repo", source],
-                                cwd=HERE, text=True, capture_output=True)
-        if result.returncode == 0:
-            return
-    raise ReleaseError(f"source release missing: {source} version {version}")
+    tag = f"v{version}"
+    result = subprocess.run(["gh", "release", "view", tag, "--repo", source,
+                             "--json", "tagName"],
+                            cwd=HERE, text=True, capture_output=True)
+    if result.returncode:
+        raise ReleaseError(f"source release missing: {source} tag {tag}")
+    try:
+        release_tag = json.loads(result.stdout).get("tagName")
+    except json.JSONDecodeError as exc:
+        raise ReleaseError(f"source release cannot be read: {source} tag {tag}") from exc
+    if release_tag != tag:
+        raise ReleaseError(f"source release is not associated with tag {tag}: {source}")
+    return source, tag
+
+
+def source_tag_commit(source: str, tag: str) -> str:
+    """Resolve an annotated or lightweight remote tag to its full commit SHA."""
+    try:
+        ref = json.loads(run(["gh", "api", f"repos/{source}/git/ref/tags/{tag}"],
+                             capture=True))
+    except json.JSONDecodeError as exc:
+        raise ReleaseError(f"source tag cannot be decoded: {source} {tag}") from exc
+    target = ref.get("object")
+    while isinstance(target, dict) and target.get("type") == "tag":
+        sha = str(target.get("sha", ""))
+        if not COMMIT.fullmatch(sha):
+            raise ReleaseError(f"source tag has no complete SHA: {source} {tag}")
+        try:
+            annotated = json.loads(run(["gh", "api", f"repos/{source}/git/tags/{sha}"],
+                                       capture=True))
+        except json.JSONDecodeError as exc:
+            raise ReleaseError(f"annotated source tag cannot be decoded: {source} {tag}") from exc
+        target = annotated.get("object")
+    if not isinstance(target, dict) or target.get("type") != "commit":
+        raise ReleaseError(f"source tag does not resolve to a commit: {source} {tag}")
+    commit = str(target.get("sha", ""))
+    if not COMMIT.fullmatch(commit):
+        raise ReleaseError(f"source tag has no complete commit SHA: {source} {tag}")
+    return commit
 
 
 def download_manifest(repo: str, name: str) -> dict | None:
@@ -120,7 +154,7 @@ def read_metadata(path: Path, project: str, version: str) -> tuple[Path, dict]:
     except (OSError, json.JSONDecodeError) as exc:
         raise ReleaseError(f"invalid metadata: {path}") from exc
     artifact = path.parent / str(data.get("name", ""))
-    required = ("name", "commit", "target", "platform", "format", "dirty")
+    required = ("name", "sha256", "commit", "target", "platform", "format", "dirty")
     missing = [key for key in required if key not in data]
     if missing or data.get("project") != project or data.get("version") != version:
         raise ReleaseError(f"metadata does not describe {project} {version}: {path}")
@@ -131,15 +165,21 @@ def read_metadata(path: Path, project: str, version: str) -> tuple[Path, dict]:
     platform = data["platform"]
     if not isinstance(platform, dict) or not platform.get("os") or not platform.get("arch"):
         raise ReleaseError(f"metadata platform is incomplete: {path}")
-    data["sha256"] = checksum(artifact)
+    actual_sha256 = checksum(artifact)
+    if not SHA256.fullmatch(str(data["sha256"])) or data["sha256"] != actual_sha256:
+        raise ReleaseError(f"artifact SHA-256 does not match metadata: {artifact}")
+    data["sha256"] = actual_sha256
     return artifact, {key: data[key] for key in
                       ("name", "sha256", "commit", "target", "platform", "format")}
 
 
-def write_manifest(folder: Path, project: str, version: str, entries: list[dict]) -> tuple[Path, Path]:
+def write_manifest(folder: Path, project: str, version: str, entries: list[dict],
+                   source: str, tag: str, commit: str) -> tuple[Path, Path]:
     entries.sort(key=lambda item: item["name"])
     manifest = {"schema_version": SCHEMA_VERSION, "project": project,
-                "version": version, "artifacts": entries}
+                "version": version,
+                "source": {"repository": source, "tag": tag, "commit": commit},
+                "artifacts": entries}
     manifest_path = folder / "manifest.json"
     manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
     checksums = folder / "checksums.sha256"
@@ -151,22 +191,46 @@ def write_manifest(folder: Path, project: str, version: str, entries: list[dict]
 def publish(args: argparse.Namespace) -> int:
     preflight()
     repo = repository()
-    ensure_source_release(repo, args.project, args.version)
+    source, tag = ensure_source_release(repo, args.project, args.version)
+    tagged_commit = source_tag_commit(source, tag)
+
+    candidates = [read_metadata(meta_path.resolve(), args.project, args.version)
+                  for meta_path in args.metadata]
+    for artifact, entry in candidates:
+        if entry["commit"] != tagged_commit:
+            raise ReleaseError(
+                f"{args.project} {args.version}: artifact commit does not match source tag {tag}.\n"
+                f"Artifact: {entry['commit']} ({artifact.name})\n"
+                f"Tag:      {tagged_commit}\n"
+                "No asset has been published."
+            )
+
     name = release_name(args.project, args.version)
     old = download_manifest(repo, name)
     if old and (old.get("schema_version") != SCHEMA_VERSION or old.get("project") != args.project
                 or old.get("version") != args.version):
         raise ReleaseError("existing release manifest identifies a different project or version")
+    if old:
+        recorded_source = old.get("source")
+        if recorded_source and recorded_source != {
+                "repository": source, "tag": tag, "commit": tagged_commit}:
+            raise ReleaseError("existing release records a different authoritative source")
+        for entry in old.get("artifacts", []):
+            if entry.get("commit") != tagged_commit:
+                raise ReleaseError(
+                    f"existing release contains an artifact from a different commit: "
+                    f"{entry.get('name', '(unnamed)')}\n"
+                    "No asset has been published."
+                )
     existing = {entry["name"]: entry for entry in (old or {}).get("artifacts", [])}
     additions: list[tuple[Path, dict]] = []
-    for meta_path in args.metadata:
-        artifact, entry = read_metadata(meta_path.resolve(), args.project, args.version)
+    for artifact, entry in candidates:
         previous = existing.get(entry["name"])
         if previous == entry:
             print(f"already published: {entry['name']}")
             continue
-        if previous and not args.force:
-            raise ReleaseError(f"conflict for {entry['name']}: commit or checksum differs (use --force)")
+        if previous:
+            raise ReleaseError(f"conflict for {entry['name']}: commit or checksum differs")
         existing[entry["name"]] = entry
         additions.append((artifact, entry))
     if not additions:
@@ -177,12 +241,10 @@ def publish(args: argparse.Namespace) -> int:
              "--title", f"{args.project} - v{args.version}",
              "--notes", args.notes or f"Distribution artifacts for {args.project} {args.version}."])
     upload = ["gh", "release", "upload", name, "--repo", repo]
-    if args.force:
-        upload.append("--clobber")
     run(upload + [str(path) for path, _ in additions])
     with tempfile.TemporaryDirectory(prefix="morfpackages-") as raw:
         manifest, checksums = write_manifest(Path(raw), args.project, args.version,
-                                             list(existing.values()))
+                                             list(existing.values()), source, tag, tagged_commit)
         run(["gh", "release", "upload", name, "--repo", repo, "--clobber",
              str(manifest), str(checksums)])
     print(f"published {len(additions)} artifact(s) to {repo} release {name}")
@@ -216,7 +278,6 @@ def main() -> int:
     publish_parser.add_argument("--project", required=True)
     publish_parser.add_argument("--version", required=True)
     publish_parser.add_argument("--metadata", type=Path, action="append", required=True)
-    publish_parser.add_argument("--force", action="store_true", help="replace a conflicting asset")
     publish_parser.add_argument("--notes", help="release text used only when creating the release")
     sync_parser = commands.add_parser("sync", help="download existing artifact assets")
     sync_parser.add_argument("--project", required=True)
