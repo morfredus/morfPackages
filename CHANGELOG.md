@@ -3,6 +3,14 @@
 Le format s'inspire de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/)
 et du [versionnage sémantique](https://semver.org/lang/fr/).
 
+## [0.6.1] - 2026-08-20
+
+### Corrigé
+
+- Une reconstruction locale différente ne bloque plus la recopie vers la
+  release projet d'un asset déjà validé dans l'index. L'asset indexé n'est
+  jamais remplacé.
+
 ## [0.6.0] - 2026-08-20
 
 ### Ajouté

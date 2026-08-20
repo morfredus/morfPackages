@@ -282,7 +282,15 @@ def publish(args: argparse.Namespace) -> int:
             print(f"already published: {entry['name']}")
             continue
         if previous:
-            raise ReleaseError(f"conflict for {entry['name']}: commit or checksum differs")
+            # Un asset portant ce nom est déjà la référence immuable de cette
+            # release. Le dossier dist peut contenir une reconstruction plus
+            # récente, donc différente octet pour octet, du même tag source.
+            # Ne jamais remplacer l'asset publié. Le manifeste existant a
+            # déjà été vérifié contre le tag et peut être recopié sans risque
+            # vers la release utilisateur qui lui manquerait encore.
+            print(f"retaining indexed artifact: {entry['name']} "
+                  "(local commit or checksum differs)")
+            continue
         existing[entry["name"]] = entry
         additions.append((artifact, entry))
     if old is None:
