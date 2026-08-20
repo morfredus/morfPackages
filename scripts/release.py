@@ -33,7 +33,7 @@ def run(command: list[str], *, capture: bool = False) -> str:
     print("$ " + " ".join(command))
     result = subprocess.run(command, cwd=HERE, text=True, capture_output=capture)
     if result.returncode:
-        detail = (result.stderr or result.stdout).strip()
+        detail = (result.stderr or result.stdout or "").strip()
         raise ReleaseError(detail or f"command failed ({result.returncode})")
     return result.stdout if capture else ""
 
@@ -195,6 +195,16 @@ def release_asset_names(repo: str, name: str) -> set[str]:
     return {line.strip() for line in raw.splitlines() if line.strip()}
 
 
+def upload_control_assets(repo: str, release: str, *paths: Path) -> None:
+    """Replace each evolving manifest asset in a separate GitHub request.
+
+    GitHub CLI can reject one member of a multi-asset --clobber upload after it
+    has already replaced another one. Separate requests keep retries harmless.
+    """
+    for path in paths:
+        run(["gh", "release", "upload", release, "--repo", repo, "--clobber", str(path)])
+
+
 def mirror_source_release(distribution_repo: str, distribution_name: str,
                           source: str, tag: str, project: str, version: str,
                           artifact_names: list[str], manifest: Path, checksums: Path,
@@ -208,17 +218,13 @@ def mirror_source_release(distribution_repo: str, distribution_name: str,
     accepted: this never silently replaces an uploaded binary.
     """
     source_assets = release_asset_names(source, tag)
-    names = [*artifact_names, manifest.name, checksums.name]
     with tempfile.TemporaryDirectory(prefix="morfpackages-source-") as raw:
         folder = Path(raw)
         files: list[Path] = []
-        for asset_name in names:
-            if asset_name in (manifest.name, checksums.name):
-                local = manifest if asset_name == manifest.name else checksums
-            else:
-                run(["gh", "release", "download", distribution_name, "--repo", distribution_repo,
-                     "--pattern", asset_name, "--dir", str(folder), "--clobber"])
-                local = folder / asset_name
+        for asset_name in artifact_names:
+            run(["gh", "release", "download", distribution_name, "--repo", distribution_repo,
+                 "--pattern", asset_name, "--dir", str(folder), "--clobber"])
+            local = folder / asset_name
             if not local.is_file():
                 raise ReleaseError(f"distribution asset cannot be downloaded: {asset_name}")
             if asset_name in source_assets:
@@ -234,6 +240,9 @@ def mirror_source_release(distribution_repo: str, distribution_name: str,
         if files:
             run(["gh", "release", "upload", tag, "--repo", source,
                  *[str(path) for path in files]])
+        # Unlike binaries, these files represent the complete current index.
+        # They must evolve when a platform is added and are therefore replaced.
+        upload_control_assets(source, tag, manifest, checksums)
         if notes:
             run(["gh", "release", "edit", tag, "--repo", source,
                  "--title", f"{project} - v{version}", "--notes", notes])
@@ -303,8 +312,7 @@ def publish(args: argparse.Namespace) -> int:
     with tempfile.TemporaryDirectory(prefix="morfpackages-") as raw:
         manifest, checksums = write_manifest(Path(raw), args.project, args.version,
                                              list(existing.values()), source, tag, tagged_commit)
-        run(["gh", "release", "upload", name, "--repo", repo, "--clobber",
-             str(manifest), str(checksums)])
+        upload_control_assets(repo, name, manifest, checksums)
         mirror_source_release(repo, name, source, tag, args.project, args.version,
                               sorted(existing), manifest, checksums, args.notes)
     print(f"published {len(additions)} artifact(s) to {repo} release {name}")

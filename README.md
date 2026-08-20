@@ -18,4 +18,7 @@ If a local reconstruction has the same name as an indexed asset but differs in
 commit or checksum, the indexed asset remains immutable. It is still mirrored
 to the source release when that release does not contain it yet.
 
+The manifest and checksum list are control assets, not immutable binaries.
+They are refreshed on both releases whenever the validated index changes.
+
 See [schema/manifest.schema.json](schema/manifest.schema.json) for the v1 contract.

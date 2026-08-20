@@ -3,6 +3,15 @@
 Le format s'inspire de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/)
 et du [versionnage sémantique](https://semver.org/lang/fr/).
 
+## [0.6.2] - 2026-08-20
+
+### Corrigé
+
+- Les manifestes et sommes de contrôle sont remplacés séparément lors d'une
+  reprise. Ils peuvent évoluer sans provoquer de conflit avec les binaires.
+- Un échec de commande sans sortie ne masque plus son code de retour par une
+  erreur Python.
+
 ## [0.6.1] - 2026-08-20
 
 ### Corrigé

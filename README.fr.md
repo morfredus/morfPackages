@@ -20,4 +20,8 @@ Si une reconstruction locale porte le même nom qu'un asset déjà indexé mais 
 un commit ou une somme différents, l'asset indexé reste immuable. Il est quand
 même recopié dans la release source si celle-ci ne le contient pas encore.
 
+Le manifeste et la liste des sommes sont des fichiers de contrôle, pas des
+binaires immuables. Ils sont donc actualisés sur les deux releases lorsque
+l'index validé évolue.
+
 Le schéma du manifeste v1 se trouve dans [schema/manifest.schema.json](schema/manifest.schema.json).
