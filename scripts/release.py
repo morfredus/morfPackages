@@ -320,6 +320,11 @@ def publish(args: argparse.Namespace) -> int:
 
 
 def sync(args: argparse.Namespace) -> int:
+    """Download indexed assets and derive matching local sidecars.
+
+    ``dist`` is a cache shared between build hosts. An older local sidecar must
+    never survive when its artifact is replaced by the immutable indexed copy.
+    """
     repo = repository()
     name = release_name(args.project, args.version)
     output = args.out.resolve()
@@ -330,11 +335,28 @@ def sync(args: argparse.Namespace) -> int:
     if result.returncode:
         print(f"no published release to sync: {name}")
         return 0
+    manifest = download_manifest(repo, name)
+    if not isinstance(manifest, dict) or manifest.get("schema_version") != SCHEMA_VERSION:
+        raise ReleaseError(f"published release has no compatible manifest: {name}")
+    if manifest.get("project") != args.project or manifest.get("version") != args.version:
+        raise ReleaseError(f"published manifest identifies a different project or version: {name}")
+    entries = {entry.get("name"): entry for entry in manifest.get("artifacts", [])
+               if isinstance(entry, dict) and isinstance(entry.get("name"), str)}
     assets = [line for line in result.stdout.splitlines()
               if line not in ("manifest.json", "checksums.sha256")]
     for asset in assets:
         run(["gh", "release", "download", name, "--repo", repo, "--pattern", asset,
              "--dir", str(output), "--clobber"])
+        entry = entries.get(asset)
+        artifact = output / asset
+        if not isinstance(entry, dict) or not artifact.is_file():
+            raise ReleaseError(f"manifest has no matching artifact entry: {asset}")
+        if entry.get("sha256") != checksum(artifact):
+            raise ReleaseError(f"downloaded artifact checksum differs from manifest: {asset}")
+        sidecar = {"project": args.project, "version": args.version,
+                   "dirty": False, **entry}
+        metadata = output / f"{asset}.metadata.json"
+        metadata.write_text(json.dumps(sidecar, indent=2) + "\n", encoding="utf-8")
     print(f"synced {len(assets)} artifact(s) from {name}")
     return 0
 

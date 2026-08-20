@@ -1,6 +1,6 @@
 # morfPackages
 
-[![Version](https://img.shields.io/badge/version-0.6.1-blue)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-0.6.3-blue)](CHANGELOG.md)
 
 J'avais besoin de pouvoir installer une version de morfSystem sans transformer les dépôts de code en entrepôts de binaires. `morfPackages` garde donc un rôle étroit : il rassemble les livrables déjà construits, sans compiler à leur place ni s'approprier leurs recettes.
 
@@ -14,7 +14,7 @@ manifeste et les sommes de contrôle sont recopiés dans la release du dépôt
 source : l'utilisateur trouve donc directement les installables sur la page de
 release du projet.
 
-`scripts/release.py sync` récupère les assets déjà publiés dans le dossier de distribution commun. `scripts/release.py publish` ajoute seulement les artefacts manquants d'une plateforme, après les vérifications nécessaires, puis les recopie dans la release source. Les deux passent uniquement par `gh release` pour les assets.
+`scripts/release.py sync` récupère les assets déjà publiés dans le dossier de distribution commun et recrée leurs sidecars locaux depuis le manifeste. `scripts/release.py publish` ajoute seulement les artefacts manquants d'une plateforme, après les vérifications nécessaires, puis les recopie dans la release source. Les deux passent uniquement par `gh release` pour les assets.
 
 Si une reconstruction locale porte le même nom qu'un asset déjà indexé mais a
 un commit ou une somme différents, l'asset indexé reste immuable. Il est quand

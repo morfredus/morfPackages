@@ -3,6 +3,13 @@
 Le format s'inspire de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/)
 et du [versionnage sémantique](https://semver.org/lang/fr/).
 
+## [0.6.3] - 2026-08-20
+
+### Corrigé
+
+- La synchronisation recrée le sidecar de chaque binaire téléchargé depuis son
+  manifeste validé, au lieu de conserver une provenance locale obsolète.
+
 ## [0.6.2] - 2026-08-20
 
 ### Corrigé
