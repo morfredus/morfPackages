@@ -1,6 +1,6 @@
 # morfPackages
 
-[![Version](https://img.shields.io/badge/version-0.6.3-blue)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-0.6.4-blue)](CHANGELOG.md)
 
 `morfPackages` publishes the installable morfSystem artifacts without taking ownership of their source builds. The Git repository deliberately contains only the release contract and the scripts that enforce it; every binary lives only as a GitHub Release asset.
 

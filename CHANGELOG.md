@@ -3,6 +3,14 @@
 Le format s'inspire de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/)
 et du [versionnage sémantique](https://semver.org/lang/fr/).
 
+## [0.6.4] - 2026-08-21
+
+### Corrigé
+
+- La recopie des notes vers la release source n'utilise plus `gh release edit`
+  (HTTP 422 `tag_name already exists`). Un PATCH de l'id de release met a jour
+  titre et corps sans renvoyer le tag.
+
 ## [0.6.3] - 2026-08-20
 
 ### Corrigé

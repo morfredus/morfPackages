@@ -195,6 +195,21 @@ def release_asset_names(repo: str, name: str) -> set[str]:
     return {line.strip() for line in raw.splitlines() if line.strip()}
 
 
+def edit_source_release_notes(source: str, tag: str, project: str, version: str,
+                              notes: str) -> None:
+    """Update title and body without sending tag_name.
+
+    ``gh release edit`` includes tag_name in the PATCH. GitHub then answers
+    422 ``Release.tag_name already exists`` when that tag already has a
+    release. The zip can already be published; only the notes rewrite fails.
+    """
+    ident = run(["gh", "release", "view", tag, "--repo", source,
+                 "--json", "id", "--jq", ".id"], capture=True).strip()
+    run(["gh", "api", "--method", "PATCH", f"repos/{source}/releases/{ident}",
+         "--raw-field", f"name={project} - v{version}",
+         "--raw-field", f"body={notes}"])
+
+
 def upload_control_assets(repo: str, release: str, *paths: Path) -> None:
     """Replace each evolving manifest asset in a separate GitHub request.
 
@@ -244,8 +259,7 @@ def mirror_source_release(distribution_repo: str, distribution_name: str,
         # They must evolve when a platform is added and are therefore replaced.
         upload_control_assets(source, tag, manifest, checksums)
         if notes:
-            run(["gh", "release", "edit", tag, "--repo", source,
-                 "--title", f"{project} - v{version}", "--notes", notes])
+            edit_source_release_notes(source, tag, project, version, notes)
     print(f"mirrored {len(files)} asset(s) to {source} release {tag}")
 
 
