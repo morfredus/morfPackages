@@ -3,6 +3,15 @@
 Le format s'inspire de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/)
 et du [versionnage sémantique](https://semver.org/lang/fr/).
 
+## [0.6.5] - 2026-08-22
+
+### Corrigé
+
+- Recopie des notes : le PATCH REST utilise l'id numérique
+  (`/releases/tags/vX.Y.Z` → `.id`), plus l'id GraphQL `RE_kwDO…` renvoyé par
+  `gh release view --json id` (HTTP 404 alors que les binaires étaient déjà
+  montés).
+
 ## [0.6.4] - 2026-08-21
 
 ### Corrigé

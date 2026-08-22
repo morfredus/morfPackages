@@ -202,9 +202,11 @@ def edit_source_release_notes(source: str, tag: str, project: str, version: str,
     ``gh release edit`` includes tag_name in the PATCH. GitHub then answers
     422 ``Release.tag_name already exists`` when that tag already has a
     release. The zip can already be published; only the notes rewrite fails.
+    ``gh release view --json id`` returns a GraphQL node id (RE_kwDO…), which
+    REST refuses with 404. The releases/tags route returns the numeric id.
     """
-    ident = run(["gh", "release", "view", tag, "--repo", source,
-                 "--json", "id", "--jq", ".id"], capture=True).strip()
+    ident = run(["gh", "api", f"repos/{source}/releases/tags/{tag}",
+                 "--jq", ".id"], capture=True).strip()
     run(["gh", "api", "--method", "PATCH", f"repos/{source}/releases/{ident}",
          "--raw-field", f"name={project} - v{version}",
          "--raw-field", f"body={notes}"])
