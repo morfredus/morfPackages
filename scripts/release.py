@@ -15,6 +15,7 @@ import re
 import subprocess
 import sys
 import tempfile
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -29,9 +30,53 @@ class ReleaseError(RuntimeError):
     """A deliberate refusal: continuing could publish an ambiguous artifact."""
 
 
+# Erreurs SERVEUR transitoires de GitHub : gh les fait remonter en clair
+# ("HTTP 502: Server Error", "HTTP 429", "timeout"...). Elles ne disent rien sur
+# la validite de la demande, juste que l'API a hoquete. Un seul de ces hoquets
+# faisait echouer toute la publication du parc (vu sur un upload de manifest.json
+# rendu en 502) : on reessaie donc au lieu d'abandonner.
+_TRANSIENT = re.compile(
+    r"HTTP (5\d\d|429)|Server Error|Bad Gateway|Service Unavailable|"
+    r"Gateway Time-?out|timeout|timed out|connection reset|\bEOF\b|too quickly",
+    re.IGNORECASE)
+
+
+def _transient(text: str) -> bool:
+    return bool(_TRANSIENT.search(text or ""))
+
+
+def _attempt(command: list[str], *, retries: int = 4) -> subprocess.CompletedProcess:
+    """Lance une commande en ne reessayant QUE les hoquets serveur de GitHub.
+
+    Capture toujours les deux flux, pour pouvoir lire le signal transitoire ;
+    l'appelant reste libre de traiter un code non nul comme fatal (sonde
+    d'existence) ou de le laisser remonter. Seul ``gh`` est reessaye : un echec
+    de ``git`` n'est jamais un hoquet serveur ici.
+    """
+    result = subprocess.run(command, cwd=HERE, text=True, capture_output=True)
+    for attempt in range(1, retries):
+        if result.returncode == 0 or command[:1] != ["gh"]:
+            return result
+        if not _transient((result.stderr or "") + (result.stdout or "")):
+            return result
+        wait = 2.0 * attempt
+        print(f"  GitHub a renvoye une erreur transitoire ; nouvel essai dans "
+              f"{wait:.0f} s ({attempt}/{retries - 1})...", file=sys.stderr)
+        time.sleep(wait)
+        result = subprocess.run(command, cwd=HERE, text=True, capture_output=True)
+    return result
+
+
 def run(command: list[str], *, capture: bool = False) -> str:
     print("$ " + " ".join(command))
-    result = subprocess.run(command, cwd=HERE, text=True, capture_output=capture)
+    result = _attempt(command)
+    if not capture:
+        # _attempt capture toujours (pour lire le signal transitoire) ; on
+        # re-emet la sortie pour garder l'affichage d'avant quand capture=False.
+        if result.stdout:
+            sys.stdout.write(result.stdout)
+        if result.stderr:
+            sys.stderr.write(result.stderr)
     if result.returncode:
         detail = (result.stderr or result.stdout or "").strip()
         raise ReleaseError(detail or f"command failed ({result.returncode})")
@@ -82,9 +127,8 @@ def ensure_source_release(distribution_repo: str, project: str, version: str) ->
     """Require the authoritative release and its exact conventional source tag."""
     source = source_repository(distribution_repo, project)
     tag = f"v{version}"
-    result = subprocess.run(["gh", "release", "view", tag, "--repo", source,
-                             "--json", "tagName"],
-                            cwd=HERE, text=True, capture_output=True)
+    result = _attempt(["gh", "release", "view", tag, "--repo", source,
+                       "--json", "tagName"])
     if result.returncode:
         raise ReleaseError(f"source release missing: {source} tag {tag}")
     try:
@@ -125,12 +169,11 @@ def source_tag_commit(source: str, tag: str) -> str:
 def download_manifest(repo: str, name: str) -> dict | None:
     with tempfile.TemporaryDirectory(prefix="morfpackages-") as raw:
         target = Path(raw)
-        result = subprocess.run(["gh", "release", "download", name, "--repo", repo,
-                                 "--pattern", "manifest.json", "--dir", str(target),
-                                 "--clobber"], cwd=HERE, text=True, capture_output=True)
+        result = _attempt(["gh", "release", "download", name, "--repo", repo,
+                           "--pattern", "manifest.json", "--dir", str(target),
+                           "--clobber"])
         if result.returncode:
-            view = subprocess.run(["gh", "release", "view", name, "--repo", repo],
-                                  cwd=HERE, text=True, capture_output=True)
+            view = _attempt(["gh", "release", "view", name, "--repo", repo])
             if view.returncode:
                 return None
             raise ReleaseError("existing release has no readable manifest.json")
@@ -345,9 +388,8 @@ def sync(args: argparse.Namespace) -> int:
     name = release_name(args.project, args.version)
     output = args.out.resolve()
     output.mkdir(parents=True, exist_ok=True)
-    result = subprocess.run(["gh", "release", "view", name, "--repo", repo,
-                             "--json", "assets", "--jq", ".assets[].name"],
-                            cwd=HERE, text=True, capture_output=True)
+    result = _attempt(["gh", "release", "view", name, "--repo", repo,
+                       "--json", "assets", "--jq", ".assets[].name"])
     if result.returncode:
         print(f"no published release to sync: {name}")
         return 0

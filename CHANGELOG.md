@@ -3,6 +3,20 @@
 Le format s'inspire de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/)
 et du [versionnage sémantique](https://semver.org/lang/fr/).
 
+## [0.6.6] - 2026-08-25
+
+### Corrigé
+
+- **Résilience aux hoquets serveur de GitHub (`scripts/release.py`).** Un seul
+  `HTTP 502` (ou 429, timeout de passerelle...) pendant un `gh release upload`
+  faisait échouer toute la publication du parc : vu sur l'upload d'un
+  `manifest.json` rendu en 502, laissant la release sans son manifeste (et le
+  garde de synchro refusait alors « no readable manifest.json » au run suivant).
+  Les appels `gh` passent désormais par un helper qui **réessaie avec backoff**
+  uniquement sur ces erreurs serveur transitoires (5xx/429/timeout), jamais sur
+  une vraie erreur (404, refus). Sondes d'existence et téléchargement du
+  manifeste inclus.
+
 ## [0.6.5] - 2026-08-22
 
 ### Corrigé
