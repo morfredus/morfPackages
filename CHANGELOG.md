@@ -3,6 +3,19 @@
 Le format s'inspire de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/)
 et du [versionnage sémantique](https://semver.org/lang/fr/).
 
+## [0.6.7] - 2026-08-25
+
+### Corrigé
+
+- **Téléversement des assets de contrôle idempotent (`scripts/release.py`).**
+  `gh release upload --clobber` n'écrase pas toujours l'asset existant : GitHub
+  répond parfois `HTTP 422 « ReleaseAsset.name already exists »` (souvent après
+  qu'une tentative précédente a bien téléversé mais renvoyé une erreur
+  transitoire au client). `upload_control_assets` supprime désormais l'asset puis
+  le re-téléverse dans ce cas ; `manifest.json` / `checksums.sha256` étant
+  déterministes pour une version donnée, notre contenu régénéré l'emporte
+  toujours.
+
 ## [0.6.6] - 2026-08-25
 
 ### Corrigé

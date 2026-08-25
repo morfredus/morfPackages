@@ -260,9 +260,22 @@ def upload_control_assets(repo: str, release: str, *paths: Path) -> None:
 
     GitHub CLI can reject one member of a multi-asset --clobber upload after it
     has already replaced another one. Separate requests keep retries harmless.
+
+    ``--clobber`` (delete-then-upload) is not always honoured: GitHub sometimes
+    answers 422 "already exists", typically when a previous attempt already
+    uploaded the asset but returned a transient error to the client. Since a
+    control asset is deterministic for a given version and set of artifacts, we
+    make the upload idempotent: on "already exists" we delete the asset outright
+    and upload it again, so our freshly generated content always wins.
     """
     for path in paths:
-        run(["gh", "release", "upload", release, "--repo", repo, "--clobber", str(path)])
+        try:
+            run(["gh", "release", "upload", release, "--repo", repo, "--clobber", str(path)])
+        except ReleaseError as exc:
+            if "already exists" not in str(exc).lower():
+                raise
+            run(["gh", "release", "delete-asset", release, path.name, "--repo", repo, "--yes"])
+            run(["gh", "release", "upload", release, "--repo", repo, str(path)])
 
 
 def mirror_source_release(distribution_repo: str, distribution_name: str,
