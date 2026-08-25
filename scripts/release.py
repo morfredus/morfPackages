@@ -30,14 +30,20 @@ class ReleaseError(RuntimeError):
     """A deliberate refusal: continuing could publish an ambiguous artifact."""
 
 
-# Erreurs SERVEUR transitoires de GitHub : gh les fait remonter en clair
-# ("HTTP 502: Server Error", "HTTP 429", "timeout"...). Elles ne disent rien sur
-# la validite de la demande, juste que l'API a hoquete. Un seul de ces hoquets
-# faisait echouer toute la publication du parc (vu sur un upload de manifest.json
-# rendu en 502) : on reessaie donc au lieu d'abandonner.
+# Hoquets TRANSITOIRES : soit l'API GitHub (gh) qui renvoie une erreur serveur
+# ("HTTP 502: Server Error", "HTTP 429", "timeout"...), soit le TRANSPORT git/SSH
+# qui saute ("Connection closed by ... port 22", "connection reset", blip DNS...).
+# Aucun ne dit quoi que ce soit sur la validite de la demande : un seul suffisait
+# a faire echouer toute la publication du parc, on reessaie donc au lieu
+# d'abandonner. Rien ici ne correspond a une vraie erreur (404, refus, auth,
+# non-fast-forward), qui doit remonter immediatement.
 _TRANSIENT = re.compile(
     r"HTTP (5\d\d|429)|Server Error|Bad Gateway|Service Unavailable|"
-    r"Gateway Time-?out|timeout|timed out|connection reset|\bEOF\b|too quickly",
+    r"Gateway Time-?out|timeout|timed out|connection reset|\bEOF\b|too quickly|"
+    r"connection closed|closed by remote host|kex_exchange_identification|"
+    r"broken pipe|the remote end hung up|ssh_exchange_identification|"
+    r"connection refused|network is unreachable|could not resolve host|"
+    r"temporary failure in name resolution|could not read from remote repository",
     re.IGNORECASE)
 
 
@@ -46,21 +52,22 @@ def _transient(text: str) -> bool:
 
 
 def _attempt(command: list[str], *, retries: int = 4) -> subprocess.CompletedProcess:
-    """Lance une commande en ne reessayant QUE les hoquets serveur de GitHub.
+    """Lance une commande en ne reessayant QUE les hoquets transitoires.
 
     Capture toujours les deux flux, pour pouvoir lire le signal transitoire ;
     l'appelant reste libre de traiter un code non nul comme fatal (sonde
-    d'existence) ou de le laisser remonter. Seul ``gh`` est reessaye : un echec
-    de ``git`` n'est jamais un hoquet serveur ici.
+    d'existence) ou de le laisser remonter. Seuls ``gh`` (API GitHub) et ``git``
+    (transport SSH) sont reessayes, et uniquement sur un motif transitoire.
     """
+    retriable = command[:1] in (["gh"], ["git"])
     result = subprocess.run(command, cwd=HERE, text=True, capture_output=True)
     for attempt in range(1, retries):
-        if result.returncode == 0 or command[:1] != ["gh"]:
+        if result.returncode == 0 or not retriable:
             return result
         if not _transient((result.stderr or "") + (result.stdout or "")):
             return result
         wait = 2.0 * attempt
-        print(f"  GitHub a renvoye une erreur transitoire ; nouvel essai dans "
+        print(f"  hoquet transitoire (GitHub/SSH) ; nouvel essai dans "
               f"{wait:.0f} s ({attempt}/{retries - 1})...", file=sys.stderr)
         time.sleep(wait)
         result = subprocess.run(command, cwd=HERE, text=True, capture_output=True)
@@ -219,9 +226,20 @@ def read_metadata(path: Path, project: str, version: str) -> tuple[Path, dict]:
 def write_manifest(folder: Path, project: str, version: str, entries: list[dict],
                    source: str, tag: str, commit: str) -> tuple[Path, Path]:
     entries.sort(key=lambda item: item["name"])
+    # Stratégie d'installation, déclarée explicitement pour que morfUpdate lise
+    # QUOI installer plutôt que de présumer un binaire compilé. Un artefact
+    # `source-bundle` (projet non compilé, ex. morfDashboard) bascule la release
+    # en stratégie source-bundle ; sinon `package` (flux .deb/.zip historique).
+    # Rétro-compat : un manifeste sans `install` = `package` côté consommateur.
+    bundle = next((e for e in entries if e.get("format") == "source-bundle"), None)
+    if bundle is not None:
+        install = {"type": "source-bundle", "asset": bundle["name"]}
+    else:
+        install = {"type": "package"}
     manifest = {"schema_version": SCHEMA_VERSION, "project": project,
                 "version": version,
                 "source": {"repository": source, "tag": tag, "commit": commit},
+                "install": install,
                 "artifacts": entries}
     manifest_path = folder / "manifest.json"
     manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")

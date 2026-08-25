@@ -9,6 +9,17 @@
     "schema_version": { "const": 1 },
     "project": { "type": "string", "minLength": 1 },
     "version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(?:[-+][0-9A-Za-z.-]+)?$" },
+    "install": {
+      "description": "Stratégie d'installation de la release. Absent = 'package' (compat descendante) : morfUpdate installe l'artefact compilé natif de la plateforme. 'source-bundle' : archive des fichiers applicatifs distribuables (projet non compilé), déposée telle quelle par-dessus l'installation en préservant config et état.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type"],
+      "properties": {
+        "type": { "enum": ["package", "source-bundle"] },
+        "asset": { "type": "string", "pattern": "^[^/\\\\]+$" },
+        "service": { "type": "string", "minLength": 1 }
+      }
+    },
     "source": {
       "type": "object",
       "additionalProperties": false,
@@ -40,7 +51,7 @@
               "arch": { "type": "string", "minLength": 1 }
             }
           },
-          "format": { "enum": ["deb", "zip", "bin", "appimage"] },
+          "format": { "enum": ["deb", "zip", "bin", "appimage", "source-bundle"] },
           "built_at": { "type": "string", "format": "date-time" }
         }
       }

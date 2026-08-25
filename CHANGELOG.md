@@ -3,6 +3,31 @@
 Le format s'inspire de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/)
 et du [versionnage sémantique](https://semver.org/lang/fr/).
 
+## [0.6.9] - 2026-08-25
+
+### Ajouté
+
+- **Stratégie d'installation dans le manifeste (`install`).** Le `manifest.json`
+  déclare désormais un bloc `install` : `{"type":"package"}` pour une release
+  compilée (flux historique, .deb/.zip par plateforme), ou
+  `{"type":"source-bundle","asset":"...tar.gz"}` pour un projet non compilé
+  (Python, ex. morfDashboard). But : que morfUpdate lise QUOI installer au lieu
+  de présumer un binaire. Rétro-compat : un manifeste sans `install` vaut
+  `package`. Format `source-bundle` ajouté à l'énumération du schéma
+  (`schema/manifest.schema.json`), bloc `install` optionnel déclaré.
+  Cf. `.morfredus_travail/Evolution/morfUpdate - strategies d'installation…`.
+
+## [0.6.8] - 2026-08-25
+
+### Corrigé
+
+- **Retry étendu au transport git/SSH (`scripts/release.py`).** Le helper
+  `_attempt` ne réessayait que les erreurs serveur `gh` ; une coupure SSH sur un
+  `git fetch`/`pull` du preflight ou de la synchro (« Connection closed by ...
+  port 22 »...) faisait encore échouer la publication. `_attempt` réessaie
+  désormais aussi `git` sur ces motifs transitoires de transport, jamais sur un
+  vrai refus (auth, non-fast-forward, 404).
+
 ## [0.6.7] - 2026-08-25
 
 ### Corrigé
