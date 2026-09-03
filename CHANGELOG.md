@@ -3,6 +3,16 @@
 Le format s'inspire de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/)
 et du [versionnage sémantique](https://semver.org/lang/fr/).
 
+## [0.6.10] - 2026-09-03
+
+### Fixed
+
+- Add the parc-standard `.gitattributes` (`* text=auto`, shell scripts LF, Windows
+  scripts CRLF, binaries left untouched). Without it, a working tree checked out
+  with CRLF by Git for Windows showed as dirty under WSL git (`core.autocrlf=false`),
+  which made the release chain's dirty-tree check refuse the repo. With `text=auto`,
+  line endings are normalised consistently in every environment.
+
 ## [0.6.9] - 2026-08-25
 
 ### Ajouté
