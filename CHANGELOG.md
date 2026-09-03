@@ -3,6 +3,15 @@
 Le format s'inspire de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/)
 et du [versionnage sémantique](https://semver.org/lang/fr/).
 
+## [0.6.11] - 2026-09-03
+
+### Fixed
+
+- `.gitignore` now ignores `.vscode/` (and `.vs/`, `*.code-workspace`). VS Code
+  config is machine-local and excluded from the robocopy consolidation; ignoring it
+  keeps an editor-created `.vscode/` from making the working tree dirty and blocking
+  the release chain's clean-tree preflight.
+
 ## [0.6.10] - 2026-09-03
 
 ### Fixed

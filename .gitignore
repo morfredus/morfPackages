@@ -5,3 +5,9 @@ dist/
 *.sha256
 __pycache__/
 
+
+# Configuration VS Code : locale a chaque machine, exclue de robocopy.
+# Ignoree entierement pour ne jamais salir l'arbre ni bloquer la publication.
+.vscode/
+.vs/
+*.code-workspace
