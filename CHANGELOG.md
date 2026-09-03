@@ -3,6 +3,17 @@
 Le format s'inspire de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/)
 et du [versionnage sémantique](https://semver.org/lang/fr/).
 
+## [0.6.12] - 2026-09-03
+
+### Fixed
+
+- `release.py` preflight now fast-forwards with `git merge --ff-only @{upstream}`
+  instead of a bare `git pull --ff-only`. On a repository with several remote
+  branches (e.g. GatewayLab's `dev`, `research/*`), the bare pull could abort with
+  "Cannot fast-forward to multiple branches" from a transient multi-head
+  FETCH_HEAD. The fetch already ran just above, so merging exactly the upstream is
+  sufficient and unambiguous.
+
 ## [0.6.11] - 2026-09-03
 
 ### Fixed

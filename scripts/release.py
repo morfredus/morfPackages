@@ -110,7 +110,12 @@ def preflight() -> None:
         raise ReleaseError("branch has no usable upstream; cannot preflight") from exc
     if len(counts) != 2 or counts[1] != "0":
         raise ReleaseError("local branch is ahead of or diverges from its upstream")
-    run(["git", "pull", "--ff-only"])
+    # Fast-forward to the already-fetched upstream, not a bare `git pull`. A plain
+    # pull re-fetches and, on a repo with several remote branches (dev, research/*),
+    # can abort with "Cannot fast-forward to multiple branches" from a transient
+    # multi-head FETCH_HEAD. `git fetch --prune` above already updated the tracking
+    # ref, so merging exactly @{upstream} is both sufficient and unambiguous.
+    run(["git", "merge", "--ff-only", "@{upstream}"])
 
 
 def release_name(project: str, version: str) -> str:
