@@ -11,3 +11,8 @@ __pycache__/
 .vscode/
 .vs/
 *.code-workspace
+
+# Secrets locaux : jamais versionnes
+secrets.h
+secrets.json
+.env

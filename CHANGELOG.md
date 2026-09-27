@@ -3,6 +3,13 @@
 Le format s'inspire de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/)
 et du [versionnage sémantique](https://semver.org/lang/fr/).
 
+## [0.6.13] - 2026-09-27
+
+### Changed
+
+- `.gitignore` now excludes local secret files (`secrets.h`, `secrets.json`, `.env`),
+  as in every other project of the parc.
+
 ## [0.6.12] - 2026-09-03
 
 ### Fixed
