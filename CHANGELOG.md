@@ -3,6 +3,12 @@
 Le format s'inspire de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/)
 et du [versionnage sémantique](https://semver.org/lang/fr/).
 
+## [0.6.14] - 2026-11-10
+
+### Changed
+
+- Manifest schema: `exe` is an accepted artifact format (Windows installers).
+
 ## [0.6.13] - 2026-09-27
 
 ### Changed
